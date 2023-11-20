@@ -3,8 +3,9 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision.utils import save_image
 from torch.utils.data import DataLoader
-from dataset import MedicalImageDataset
-from generator import Generator
+from torchvision.transforms import ToTensor
+from torchvision.datasets import ImageFolder
+from generator import SubGenerator, Generator
 from discriminator import Discriminator
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -17,17 +18,17 @@ num_epochs = 100
 batch_size = 64
 latent_dim = 1024
 channel = 32
-num_class = 10
+num_class = 6
 sample_interval = 100
 anomaly_threshold = 0.5
 
 # Create the dataset and dataloader
-dataset = MedicalImageDataset(...)
+dataset = ImageFolder(root='path/to/mednist', transform=ToTensor())
 data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
 # Set up the generator and discriminator
-generator = Generator(mode="train", latent_dim=latent_dim, channel=channel, num_class=num_class).to(device)
-discriminator = Discriminator(channel=channel).to(device)
+generator = Generator(latent_dim).to(device)
+discriminator = Discriminator(channel).to(device)
 
 # Define the loss function and optimizer
 adversarial_loss = nn.BCELoss()
@@ -53,7 +54,7 @@ for epoch in range(num_epochs):
 
         # Generate a batch of images
         z = torch.randn(real_images.size(0), latent_dim).to(device)
-        gen_images = generator(z, class_label=labels)
+        gen_images = generator(z)
 
         # Measure discriminator's ability to classify real and generated samples
         real_loss = adversarial_loss(discriminator(real_images), valid)
@@ -70,7 +71,7 @@ for epoch in range(num_epochs):
         optimizer_G.zero_grad()
 
         # Generate a batch of images
-        gen_images = generator(z, class_label=labels)
+        gen_images = generator(z)
 
         # Measure generator's ability to fool the discriminator
         g_loss = adversarial_loss(discriminator(gen_images), valid)

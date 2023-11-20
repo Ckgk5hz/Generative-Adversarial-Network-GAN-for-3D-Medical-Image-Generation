@@ -94,76 +94,88 @@ optimizer_G = optim.Adam(generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 optimizer_D = optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 optimizer_VAE = optim.Adam(vae.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
+# Define the path to save the trained models
+generator_path = 'generator.pt'
+discriminator_path = 'discriminator.pt'
+vae_path = 'vae.pt'
+
+# Create empty lists to store loss values
+d_loss_values = []
+g_loss_values = []
+vae_loss_values = []
+
 # Training loop
 for epoch in range(num_epochs):
     for i, (real_images, labels) in enumerate(data_loader):
-        # Adversarial ground truths
-        valid = torch.ones(real_images.size(0), 1).to(device)
-        fake = torch.zeros(real_images.size(0), 1).to(device)
         
-        # Configure input
+        # Configure real images and labels
         real_images = real_images.to(device)
         labels = labels.to(device)
-        
-        # ---------------------
-        #  Train Discriminator
-        # ---------------------
 
+        # Train the discriminator
         optimizer_D.zero_grad()
-
-        # Generate a batch of images
-        z = torch.randn(real_images.size(0), latent_dim).to(device)
-        gen_images = generator(z)
-
-        # Measure discriminator's ability to classify real and generated samples
-        real_loss = adversarial_loss(discriminator(real_images), valid)
-        fake_loss = adversarial_loss(discriminator(gen_images.detach()), fake)
+        z = torch.randn(batch_size, latent_dim).to(device)
+        fake_images = generator(z)
+        real_labels = torch.ones(batch_size, 1).to(device)
+        fake_labels = torch.zeros(batch_size, 1).to(device)
+        real_pred = discriminator(real_images)
+        fake_pred = discriminator(fake_images.detach())
+        real_loss = adversarial_loss(real_pred, real_labels)
+        fake_loss = adversarial_loss(fake_pred, fake_labels)
         d_loss = (real_loss + fake_loss) / 2
-
         d_loss.backward()
         optimizer_D.step()
 
-        # -----------------
-        #  Train Generator
-        # -----------------
-
-        optimizer_G.zero_grad```python
-        # Generate a batch of images
-        gen_images = generator(z)
-
-        # Adversarial loss
-        g_loss = adversarial_loss(discriminator(gen_images), valid)
-
+        # Train the generator
+        optimizer_G.zero_grad()
+        fake_pred = discriminator(fake_images)
+        g_loss =adversarial_loss(fake_pred, real_labels)
         g_loss.backward()
         optimizer_G.step()
 
-        # -----------------
-        #  Train VAE
-        # -----------------
-
+        # Train the VAE
         optimizer_VAE.zero_grad()
-
-        # Generate a batch of images and reconstruct them
-        gen_images = generator(z)
-        recon_images, mu, logvar = vae(real_images)
-
-        # Adversarial loss
-        vae_loss = adversarial_loss(discriminator(recon_images), valid)
-
-        # Reconstruction loss
-        recon_loss = reconstruction_loss(recon_images, real_images)
-
-        # KL divergence loss
-        kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-
-        vae_loss = vae_loss + recon_loss + kl_loss
+        reconstructed_images, mu, logvar = vae(real_images)
+        vae_loss = reconstruction_loss(reconstructed_images, real_images) + 0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
         vae_loss.backward()
         optimizer_VAE.step()
 
+        # Append loss values to lists
+        d_loss_values.append(d_loss.item())
+        g_loss_values.append(g_loss.item())
+        vae_loss_values.append(vae_loss.item())
+
         # Print training progress
-        if i % sample_interval == 0:
-            print("[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f] [VAE loss: %f]"
-                  % (epoch, num_epochs, i, len(data_loader), d_loss.item(), g_loss.item(), vae_loss.item()))
+        if (i+1) % sample_interval == 0:
+            print(f"Epoch [{epoch+1}/{num_epochs}], Batch [{i+1}/{len(data_loader)}], "
+                  f"D_loss: {d_loss.item():.4f}, G_loss: {g_loss.item():.4f}, VAE_loss: {vae_loss.item():.4f}")
+
+# Save the trained models
+torch.save(generator.state_dict(), generator_path)
+torch.save(discriminator.state_dict(), discriminator_path)
+torch.save(vae.state_dict(), vae_path)
+
+# Load the saved models
+generator = Generator(latent_dim).to(device)
+generator.load_state_dict(torch.load(generator_path))
+generator.eval()
+
+discriminator = Discriminator(channel).to(device)
+discriminator.load_state_dict(torch.load(discriminator_path))
+discriminator.eval()
+
+vae = VAE(latent_dim).to(device)
+vae.load_state_dict(torch.load(vae_path))
+vae.eval()
+
+# Visualize loss
+plt.plot(d_loss_values, label='Discriminator Loss')
+plt.plot(g_loss_values, label='Generator Loss')
+plt.plot(vae_loss_values, label='VAE Loss')
+plt.xlabel('Iterations')
+plt.ylabel('Loss')
+plt.legend()
+plt.show()
 
 # Perform anomaly detection
 anomaly_scores = []

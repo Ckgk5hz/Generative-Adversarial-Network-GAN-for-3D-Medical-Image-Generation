@@ -23,26 +23,29 @@ class Discriminator(nn.Module):
 
         self.conv7 = nn.Conv3d(_c*16, 1, kernel_size=3, stride=1, padding=1, bias=True)
 
+        self.leaky_relu = nn.LeakyReLU(0.2, inplace=True)
+        self.sigmoid = nn.Sigmoid()
+
     def forward(self, x):
         x = self.conv1(x)
-        x = nn.LeakyReLU(0.2)(self.bn1(x))
+        x = self.leaky_relu(self.bn1(x))
 
         x = self.conv2(x)
-        x = nn.LeakyReLU(0.2)(self.bn2(x))
+        x = self.leaky_relu(self.bn2(x))
 
         x = self.conv3(x)
-        x = nn.LeakyReLU(0.2)(self.bn3(x))
+        x = self.leaky_relu(self.bn3(x))
 
         x = self.conv4(x)
-        x = nn.LeakyReLU(0.2)(self.bn4(x))
+        x = self.leaky_relu(self.bn4(x))
 
         x = self.conv5(x)
-        x = nn.LeakyReLU(0.2)(self.bn5(x))
+        x = self.leaky_relu(self.bn5(x))
 
         x = self.conv6(x)
-        x = nn.LeakyReLU(0.2)(self.bn6(x))
+        x = self.leaky_relu(self.bn6(x))
 
         x = self.conv7(x)
-        x = torch.sigmoid(x)
+        x.sigmoid_()
 
         return x
